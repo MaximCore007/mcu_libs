@@ -70,7 +70,33 @@
 #include <stdio.h>
 #include <string.h>
 
-#define STRING_LENGTH_MAX 256 
+#define STRING_LENGTH_MAX 256   // fixme: this for example
+
+#define SIZEOF_UINT16 4
+#define END_OF_VALID_ASCII 0x007F
+
+// Helper function to convert a single hex digit character to its integer value
+static uint8_t hex_char_to_int(char c)
+{
+    if (c >= '0' && c <= '9') {
+        return (uint8_t)(c - '0');
+    } else if (c >= 'A' && c <= 'F') {
+        return (uint8_t)(c - 'A' + 10);
+    } else if (c >= 'a' && c <= 'f') {
+        return (uint8_t)(c - 'a' + 10);
+    }
+    return 0; // Error case, should handle it properly in production code
+}
+
+// Helper function to convert a single digit to a hexadecimal character
+static char int_to_hex_char(uint8_t value) {
+    if (value < 10) {
+        return '0' + value;
+    } else if (value < 16) {
+        return 'A' + (value - 10);
+    }
+    return '0'; // Error case, should handle it properly in production code
+}
 
 size_t strlen_utf16(const uint16_t *utf16be_str)
 {
@@ -91,7 +117,7 @@ void ascii_to_utf16be(const char *ascii_str, uint16_t *utf16be_str, size_t utf16
         *utf16be_str++ = (uint16_t)(*ascii_str++ & 0x00FF);
         utf16be_size--;
     }
-    *utf16be_str++ = 0x0000; // Null-terminate the UTF-16 string
+    *utf16be_str = 0x0000; // Null-terminate the UTF-16 string
 }
 
 // Function to convert UTF-16 BE to ASCII
@@ -99,7 +125,7 @@ void utf16be_to_ascii(const uint16_t *utf16be_str, char *ascii_str, size_t ascii
 {
     while (*utf16be_str != 0x0000 && ascii_size > 0) {
         // Only convert if it's a valid ASCII character
-        if (*utf16be_str <= 0x007F) {
+        if (*utf16be_str <= END_OF_VALID_ASCII) {
             *ascii_str++ = (uint8_t)(*utf16be_str++ & 0x00FF);
         } else {
             // Handle non-ASCII characters if needed (for now, let's replace with '?')
@@ -110,28 +136,85 @@ void utf16be_to_ascii(const uint16_t *utf16be_str, char *ascii_str, size_t ascii
     *ascii_str = '\0'; // Null-terminate the ASCII string
 }
 
+// Function to convert a ASCII string representing a UTF-16 BE encoded to a UTF-16 BE array
+void ascii_hex_str_to_utf16(const char *ascii_hex_str, uint16_t *utf16be_str, size_t utf16be_size)
+{
+    while (*ascii_hex_str != '\0' && utf16be_size > 0) {
+        uint16_t utf16_sym = 
+        (uint16_t)hex_char_to_int(*ascii_hex_str++) << 12
+        | (uint16_t)hex_char_to_int(*ascii_hex_str++) << 8
+        | (uint16_t)hex_char_to_int(*ascii_hex_str++) << 4
+        | (uint16_t)hex_char_to_int(*ascii_hex_str++);
+
+        *utf16be_str++ = utf16_sym;
+        utf16be_size--;
+    }
+    *utf16be_str = 0x0000; // Null-terminate the UTF-16 string
+}
+
+// Function to convert a UTF-16 BE array to ASCII string representing a UTF-16 BE encoded
+void utf16be_to_ascii_hex_str(const uint16_t *utf16be_str, char *ascii_str, size_t ascii_size)
+{
+    while (*utf16be_str != 0x0000 && ascii_size > 0) {
+        // Only convert if it's a valid ASCII character
+        if (*utf16be_str <= END_OF_VALID_ASCII) {
+            *ascii_str++ = (uint8_t)int_to_hex_char((*utf16be_str >> 12) & 0x000F);
+            *ascii_str++ = (uint8_t)int_to_hex_char((*utf16be_str >> 8) & 0x000F);
+            *ascii_str++ = (uint8_t)int_to_hex_char((*utf16be_str >> 4) & 0x000F);
+            *ascii_str++ = (uint8_t)int_to_hex_char((*utf16be_str) & 0x000F);
+            utf16be_str++;
+        } else {
+            // Handle non-ASCII characters if needed (for now, let's replace with '?')
+            *ascii_str++ = '0';
+            *ascii_str++ = '0';
+            *ascii_str++ = '?';
+            *ascii_str++ = '?';
+        }
+        ascii_size -= SIZEOF_UINT16;
+    }
+    *ascii_str = '\0'; // Null-terminate the ASCII string
+}
+
 int main(void)
 {
-    char str_ascii[] = "Hello 120, 5:30 end";
-    char str_ascii_1[STRING_LENGTH_MAX];
-    uint16_t str_utf16be[STRING_LENGTH_MAX];
-
-    printf("ASCII to UTF-16BE array\nASCII string is: %s\n", str_ascii);
+    char str_ascii_original[] = "Hello 120, 5:30 end";
+    char str_ascii_returned[STRING_LENGTH_MAX] = {0};
+    char str_ascii_hex[STRING_LENGTH_MAX] = {0};
+    uint16_t str_utf16be[STRING_LENGTH_MAX] = {0};
+    uint16_t str_utf16be_ret[STRING_LENGTH_MAX] = {0};
 
     // ASCII to UTF-16BE array
-    ascii_to_utf16be(str_ascii, str_utf16be, STRING_LENGTH_MAX);
-    size_t utf16_len = strlen_utf16(str_utf16be);
+    printf("ASCII string to UTF-16BE array\n");
+    printf("ASCII string:\n\t%s\n", str_ascii_original);
+    ascii_to_utf16be(str_ascii_original, str_utf16be, STRING_LENGTH_MAX);
 
-    printf("UTF-16 BE array is: ");
+    printf("UTF-16 BE array:\n\t");
+    size_t utf16_len = strlen_utf16(str_utf16be);
     for (int i = 0; i < utf16_len; ++i) {
         printf("%x", (uint16_t)str_utf16be[i]);
     }
 
     // UTF-16BE array to ASII string
-    utf16be_to_ascii(str_utf16be, str_ascii_1, STRING_LENGTH_MAX);
-    printf("\nReturn to ASCII string is: %s", str_ascii_1);
+    printf("\nUTF-16BE array to ASCII string\n");
+    utf16be_to_ascii(str_utf16be, str_ascii_returned, STRING_LENGTH_MAX);
+    printf("Return to ASCII string:\n\t%s\n", str_ascii_returned);
 
-    char str_ascii_utf16[STRING_LENGTH_MAX];
+    
+    // ASCII string with UTF-16BE 
+    printf("ASCII string in UTF16 coded to UTF-16BE array\n");
+    utf16be_to_ascii_hex_str(str_utf16be, str_ascii_hex, STRING_LENGTH_MAX);
+    printf("UTF-16 BE string in ASII form:\n\t%s\n", str_ascii_hex);
+
+    // UTF-16BE array to ASII string with UTF-16BE
+    printf("UTF-16 BE array to ASCII string in UTF16 coded\n");
+    ascii_hex_str_to_utf16(str_ascii_hex, str_utf16be_ret, STRING_LENGTH_MAX);
+    printf("New UTF-16 BE array:\n\t");
+    utf16_len = strlen_utf16(str_utf16be_ret);
+    for (int i = 0; i < utf16_len; ++i) {
+        printf("%x", (uint16_t)str_utf16be_ret[i]);
+    }
 
     return 0;
 }
+
+/* End of File ****************************************************************/
