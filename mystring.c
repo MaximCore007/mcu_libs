@@ -66,9 +66,9 @@
  * comparison, length calculation, searching, tokenizing, and character classification.
  */
 
+#include "mystring.h"
 #include <stdio.h>
 #include <string.h>
-#include <stdint.h>
 
 #define STRING_LENGTH_MAX 256 
 
@@ -83,7 +83,8 @@ size_t strlen_utf16(const uint16_t *utf16be_str)
 }
 
 // Function to convert ASCII to UTF-16 BE
-void ascii_to_utf16be(const char *ascii_str, uint16_t *utf16be_str, size_t utf16be_size) {
+void ascii_to_utf16be(const char *ascii_str, uint16_t *utf16be_str, size_t utf16be_size)
+{
     while (*ascii_str != '\0' && utf16be_size > 0) {
         // UTF-16 BE representation: High byte first, low byte second
         // High byte (always 0 for ASCII), Low byte (ASCII character)
@@ -94,7 +95,8 @@ void ascii_to_utf16be(const char *ascii_str, uint16_t *utf16be_str, size_t utf16
 }
 
 // Function to convert UTF-16 BE to ASCII
-void utf16be_to_ascii(const uint16_t *utf16be_str, char *ascii_str, size_t ascii_size) {
+void utf16be_to_ascii(const uint16_t *utf16be_str, char *ascii_str, size_t ascii_size)
+{
     while (*utf16be_str != 0x0000 && ascii_size > 0) {
         // Only convert if it's a valid ASCII character
         if (*utf16be_str <= 0x007F) {
