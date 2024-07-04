@@ -1,2 +1,2 @@
-# Lessons
-The repository contain code examples for learning C/C++ language and a little system development code
+# C library for develop for MCU
+The repository contain library code and examples
